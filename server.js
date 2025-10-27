@@ -25,7 +25,8 @@ const corsOptions = {
     'http://localhost:8100', // Ionic serve default port
     'http://127.0.0.1:5173',
     'http://127.0.0.1:3000',
-    'http://127.0.0.1:8100'
+    'http://127.0.0.1:8100',
+    'https://mozart-frontend.vercel.app'
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
