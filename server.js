@@ -2,11 +2,16 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const session = require('express-session');
 require('dotenv').config();
+
+// Import passport configuration
+const passport = require('./config/passport');
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/user');
 const exerciseRoutes = require('./routes/exercise');
+const oauthRoutes = require('./routes/oauth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,7 +43,23 @@ app.use(cors(corsOptions));
 app.use(limiter);
 app.use(express.json());
 
+// Session configuration for OAuth
+app.use(session({
+  secret: process.env.JWT_SECRET || 'fallback-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', oauthRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/exercise', exerciseRoutes);
 
