@@ -3,11 +3,12 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
 const { query } = require('./database');
 
-// Google OAuth Strategy
-passport.use(new GoogleStrategy({
-  clientID: process.env.GOOGLE_CLIENT_ID,
-  clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: `${process.env.BACKEND_URL || 'http://localhost:3000/api'}/auth/google/callback`
+// Google OAuth Strategy - only configure if credentials are available
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: `${process.env.BACKEND_URL || 'http://localhost:3000/api'}/auth/google/callback`
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     // Check if user already exists with this Google account
@@ -102,14 +103,18 @@ passport.use(new GoogleStrategy({
     console.error('Google OAuth error:', error);
     return done(error, null);
   }
-}));
+  }));
+} else {
+  console.log('Google OAuth not configured - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET not found');
+}
 
-// Facebook OAuth Strategy
-passport.use(new FacebookStrategy({
-  clientID: process.env.FACEBOOK_APP_ID,
-  clientSecret: process.env.FACEBOOK_APP_SECRET,
-  callbackURL: `${process.env.BACKEND_URL || 'http://localhost:3000/api'}/auth/facebook/callback`,
-  profileFields: ['id', 'displayName', 'email', 'photos']
+// Facebook OAuth Strategy - only configure if credentials are available
+if (process.env.FACEBOOK_APP_ID && process.env.FACEBOOK_APP_SECRET) {
+  passport.use(new FacebookStrategy({
+    clientID: process.env.FACEBOOK_APP_ID,
+    clientSecret: process.env.FACEBOOK_APP_SECRET,
+    callbackURL: `${process.env.BACKEND_URL || 'http://localhost:3000/api'}/auth/facebook/callback`,
+    profileFields: ['id', 'displayName', 'email', 'photos']
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     // Check if user already exists with this Facebook account
@@ -208,7 +213,10 @@ passport.use(new FacebookStrategy({
     console.error('Facebook OAuth error:', error);
     return done(error, null);
   }
-}));
+  }));
+} else {
+  console.log('Facebook OAuth not configured - FACEBOOK_APP_ID and FACEBOOK_APP_SECRET not found');
+}
 
 // Serialize user for session
 passport.serializeUser((user, done) => {

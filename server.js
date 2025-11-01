@@ -24,36 +24,53 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.'
 });
 
-// CORS configuration
+// CORS configuration - simplified and more permissive for debugging
 const corsOptions = {
   origin: function (origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+
     // Allow requests from any origin in development
     if (process.env.NODE_ENV === 'development') {
       return callback(null, true);
     }
 
-    // In production, allow specific origins or environment-configured origins
+    // In production, allow specific origins
     const allowedOrigins = [
       'https://mozart-frontend.vercel.app',
-      process.env.FRONTEND_URL, // Allow environment-configured frontend URL
-      'http://localhost:5173', // Vite dev server
-      'http://localhost:3000', // In case frontend runs on 3000
-      'http://localhost:8100', // Ionic serve default port
+      'https://mozart-music-learning.vercel.app', // Add more possible Vercel URLs
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:8100',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:8100'
-    ].filter(Boolean); // Remove undefined values
+    ].filter(Boolean);
 
-    if (!origin || allowedOrigins.includes(origin)) {
+    // Check if origin is allowed
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (origin === allowedOrigin) return true;
+      // Also allow vercel.app subdomains
+      if (origin.endsWith('.vercel.app') && allowedOrigins.some(allowed => allowed.includes('vercel.app'))) {
+        return true;
+      }
+      return false;
+    });
+
+    if (isAllowed) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      console.log('Allowed origins:', allowedOrigins);
+      // Don't throw error, just deny
+      callback(null, false);
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  optionsSuccessStatus: 200 // For legacy browser support
 };
 
 app.use(helmet());

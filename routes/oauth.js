@@ -8,9 +8,14 @@ const router = express.Router();
 // ======================
 
 // Initiate Google OAuth login
-router.get('/google', passport.authenticate('google', {
-  scope: ['profile', 'email']
-}));
+router.get('/google', (req, res, next) => {
+  if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.status(501).json({ error: 'Google OAuth not configured' });
+  }
+  passport.authenticate('google', {
+    scope: ['profile', 'email']
+  })(req, res, next);
+});
 
 // Google OAuth callback
 router.get('/google/callback',
