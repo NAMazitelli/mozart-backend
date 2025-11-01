@@ -1,11 +1,13 @@
+// Load environment variables FIRST
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
-require('dotenv').config();
 
-// Import passport configuration
+// Import passport configuration AFTER dotenv
 const passport = require('./config/passport');
 
 const authRoutes = require('./routes/auth');
