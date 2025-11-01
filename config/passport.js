@@ -7,7 +7,7 @@ const { query } = require('./database');
 passport.use(new GoogleStrategy({
   clientID: process.env.GOOGLE_CLIENT_ID,
   clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-  callbackURL: "/api/auth/google/callback"
+  callbackURL: `${process.env.BACKEND_URL || 'http://localhost:3000/api'}/auth/google/callback`
 }, async (accessToken, refreshToken, profile, done) => {
   try {
     // Check if user already exists with this Google account
@@ -108,7 +108,7 @@ passport.use(new GoogleStrategy({
 passport.use(new FacebookStrategy({
   clientID: process.env.FACEBOOK_APP_ID,
   clientSecret: process.env.FACEBOOK_APP_SECRET,
-  callbackURL: "/api/auth/facebook/callback",
+  callbackURL: `${process.env.BACKEND_URL || 'http://localhost:3000/api'}/auth/facebook/callback`,
   profileFields: ['id', 'displayName', 'email', 'photos']
 }, async (accessToken, refreshToken, profile, done) => {
   try {

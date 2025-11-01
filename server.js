@@ -24,15 +24,31 @@ const limiter = rateLimit({
 
 // CORS configuration
 const corsOptions = {
-  origin: [
-    'http://localhost:5173', // Vite dev server
-    'http://localhost:3000', // In case frontend runs on 3000
-    'http://localhost:8100', // Ionic serve default port
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:8100',
-    'https://mozart-frontend.vercel.app'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests from any origin in development
+    if (process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+
+    // In production, allow specific origins or environment-configured origins
+    const allowedOrigins = [
+      'https://mozart-frontend.vercel.app',
+      process.env.FRONTEND_URL, // Allow environment-configured frontend URL
+      'http://localhost:5173', // Vite dev server
+      'http://localhost:3000', // In case frontend runs on 3000
+      'http://localhost:8100', // Ionic serve default port
+      'http://127.0.0.1:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:8100'
+    ].filter(Boolean); // Remove undefined values
+
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log('CORS blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
