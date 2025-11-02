@@ -240,10 +240,19 @@ async function testEqualizingExercise() {
         throw new Error('Missing or invalid sound structure');
       }
 
-      // Validate sound type is a valid oscillator type
-      const validTypes = ['sine', 'square', 'sawtooth', 'triangle'];
-      if (!validTypes.includes(exercise.sound.type)) {
-        throw new Error(`Invalid sound type: ${exercise.sound.type}`);
+      // Validate sound type is now audio-file (uses piano-loop)
+      if (exercise.sound.type !== 'audio-file') {
+        throw new Error(`Expected audio-file sound type, got: ${exercise.sound.type}`);
+      }
+
+      // Validate filename is present for audio-file type
+      if (!exercise.sound.filename) {
+        throw new Error('Missing filename for audio-file sound');
+      }
+
+      // Validate filename is piano-loop.mp3
+      if (exercise.sound.filename !== 'piano-loop.mp3') {
+        throw new Error(`Expected piano-loop.mp3, got: ${exercise.sound.filename}`);
       }
 
       if (typeof exercise.targetFrequency !== 'number' || exercise.targetFrequency <= 0) {
@@ -252,6 +261,10 @@ async function testEqualizingExercise() {
 
       if (typeof exercise.eqGainDb !== 'number') {
         throw new Error('Missing eqGainDb');
+      }
+
+      if (!exercise.filterType || !['lowpass', 'highpass', 'bandpass', 'notch'].includes(exercise.filterType)) {
+        throw new Error(`Invalid or missing filterType: ${exercise.filterType}`);
       }
 
       if (typeof exercise.qFactor !== 'number' || exercise.qFactor <= 0) {
@@ -263,7 +276,37 @@ async function testEqualizingExercise() {
         throw new Error(`EQ gain too extreme: ${exercise.eqGainDb}dB`);
       }
 
-      console.log(`   ✅ ${difficulty}: ${exercise.targetFrequency}Hz, ${exercise.eqGainDb > 0 ? '+' : ''}${exercise.eqGainDb}dB, Q=${exercise.qFactor}`);
+      // Validate answerType field
+      if (!exercise.answerType || !['slider', 'multiple-choice'].includes(exercise.answerType)) {
+        throw new Error(`Invalid or missing answerType: ${exercise.answerType}`);
+      }
+
+      // Validate answer type matches difficulty
+      if ((difficulty === 'easy' || difficulty === 'medium') && exercise.answerType !== 'multiple-choice') {
+        throw new Error(`Expected multiple-choice for ${difficulty}, got: ${exercise.answerType}`);
+      }
+
+      if (difficulty === 'hard' && exercise.answerType !== 'slider') {
+        throw new Error(`Expected slider for ${difficulty}, got: ${exercise.answerType}`);
+      }
+
+      // Validate multiple choice options for easy/medium
+      if (exercise.answerType === 'multiple-choice') {
+        if (!Array.isArray(exercise.options) || exercise.options.length !== 4) {
+          throw new Error('Multiple choice should have 4 options');
+        }
+
+        if (typeof exercise.correctAnswerIndex !== 'number' || exercise.correctAnswerIndex < 0 || exercise.correctAnswerIndex >= 4) {
+          throw new Error('Invalid correctAnswerIndex for multiple choice');
+        }
+
+        // Validate that correctAnswerIndex points to targetFrequency
+        if (exercise.options[exercise.correctAnswerIndex] !== exercise.targetFrequency) {
+          throw new Error('correctAnswerIndex does not match targetFrequency');
+        }
+      }
+
+      console.log(`   ✅ ${difficulty}: ${exercise.answerType}, ${exercise.filterType} ${exercise.targetFrequency}Hz, ${exercise.eqGainDb > 0 ? '+' : ''}${exercise.eqGainDb}dB, Q=${exercise.qFactor}`);
 
     } catch (error) {
       console.log(`   ❌ ${difficulty}: ${error.message}`);
@@ -276,19 +319,34 @@ async function testExerciseValidation() {
   console.log('✅ Testing Exercise Validation...');
 
   try {
-    // Test EQ validation (most recently fixed)
-    const eqResponse = await axios.post(`${BASE_URL}/exercise/validate/equalizing`, {
+    // Test EQ validation - Multiple Choice (easy/medium)
+    const eqMultipleChoiceResponse = await axios.post(`${BASE_URL}/exercise/validate/equalizing`, {
+      exerciseId: 'test-123',
+      selectedAnswerIndex: 1,
+      correctAnswerIndex: 1,
+      correctAnswer: 1000,
+      tolerance: 200
+    });
+
+    if (!eqMultipleChoiceResponse.data.isCorrect) {
+      throw new Error('EQ multiple choice validation should be correct for exact match');
+    }
+
+    console.log('   ✅ EQ validation (multiple choice): Exact match works');
+
+    // Test EQ validation - Slider (hard)
+    const eqSliderResponse = await axios.post(`${BASE_URL}/exercise/validate/equalizing`, {
       exerciseId: 'test-123',
       userAnswer: 1000,
       correctAnswer: 1000,
       tolerance: 200
     });
 
-    if (!eqResponse.data.isCorrect) {
-      throw new Error('EQ validation should be correct for exact match');
+    if (!eqSliderResponse.data.isCorrect) {
+      throw new Error('EQ slider validation should be correct for exact match');
     }
 
-    console.log('   ✅ EQ validation: Exact match works');
+    console.log('   ✅ EQ validation (slider): Exact match works');
 
     // Test volume validation
     const volumeResponse = await axios.post(`${BASE_URL}/exercise/validate/volumes`, {

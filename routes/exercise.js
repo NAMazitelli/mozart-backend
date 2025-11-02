@@ -3,7 +3,7 @@ const { query, getClient } = require('../config/database');
 const { authenticateToken, authenticateTokenOrGuest } = require('../middleware/auth');
 const router = express.Router();
 
-console.log('🎹 Exercise routes loaded - EQ EXERCISE FIXED VERSION 4');
+console.log('🎹 Exercise routes loaded - EQ EXERCISE FIXED VERSION 5 - ENHANCED EQ GAINS');
 
 // ======================
 // EXERCISE GENERATION ENDPOINTS
@@ -296,27 +296,50 @@ router.get('/:category/:difficulty', authenticateTokenOrGuest, async (req, res) 
           medium: [125, 250, 500, 1000, 2000, 4000, 8000], // Extended range
           hard: [63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000] // Full range
         };
-        const eqGains = {
-          easy: [-12, -9, -6, 6, 9, 12], // Large changes
-          medium: [-8, -6, -4, -3, 3, 4, 6, 8], // Moderate changes
-          hard: [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5] // Subtle changes
+        const filterTypes = {
+          easy: ['lowpass', 'highpass'], // Dramatic frequency cuts
+          medium: ['lowpass', 'highpass', 'bandpass'], // Include bandpass
+          hard: ['lowpass', 'highpass', 'bandpass', 'notch'] // All filter types
         };
 
         const availableFreqs = frequencies[difficulty];
-        const availableGains = eqGains[difficulty];
+        const availableFilterTypes = filterTypes[difficulty];
         const targetFrequency = availableFreqs[Math.floor(Math.random() * availableFreqs.length)];
-        const eqGainDb = availableGains[Math.floor(Math.random() * availableGains.length)];
+        const filterType = availableFilterTypes[Math.floor(Math.random() * availableFilterTypes.length)];
+
+        // Generate multiple choice options for easy and medium difficulties
+        let options = null;
+        let correctAnswerIndex = null;
+        if (difficulty === 'easy' || difficulty === 'medium') {
+          // Create 4 frequency options including the correct one
+          const wrongFreqs = availableFreqs.filter(f => f !== targetFrequency);
+          const selectedWrongFreqs = wrongFreqs.sort(() => 0.5 - Math.random()).slice(0, 3);
+          options = [targetFrequency, ...selectedWrongFreqs].sort(() => 0.5 - Math.random());
+          correctAnswerIndex = options.indexOf(targetFrequency);
+        }
 
         exercise = {
           ...exercise,
-          question: 'Listen to the EQ change and identify the frequency and gain:',
-          sound: { type: 'sawtooth', frequency: 220, displayName: 'Sawtooth Wave' },
+          question: difficulty === 'hard'
+            ? 'Listen to the piano loop with filter applied and identify the cutoff frequency:'
+            : 'Listen to the piano loop with filter applied and select the cutoff frequency:',
+          sound: {
+            type: 'audio-file',
+            filename: 'piano-loop.mp3',
+            displayName: 'Piano Loop',
+            description: `Piano loop with ${filterType} filter processing`
+          },
           targetFrequency,
-          eqGainDb,
-          isBoost: eqGainDb > 0,
-          qFactor: 4.0, // Q factor for the peaking filter
+          filterType,
+          eqGainDb: filterType === 'lowpass' || filterType === 'highpass' ? -24 : -12, // Display value for UI
+          isBoost: false, // Filters are always cuts, not boosts
+          qFactor: 12.0, // High Q for sharp filter cutoff
           tolerance: difficulty === 'easy' ? 200 : difficulty === 'medium' ? 150 : 100,
-          difficultyInfo: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} level EQ identification`
+          difficultyInfo: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} level ${filterType} filter identification`,
+          // Add multiple choice for easy/medium, slider for hard
+          answerType: difficulty === 'hard' ? 'slider' : 'multiple-choice',
+          options: options,
+          correctAnswerIndex: correctAnswerIndex
         };
         break;
     }
@@ -449,12 +472,23 @@ router.post('/validate/:category', authenticateTokenOrGuest, async (req, res) =>
         break;
 
       case 'equalizing':
-        const freqDifference = Math.abs(userAnswer - correctAnswer);
-        isCorrect = freqDifference <= tolerance;
-        accuracy = Math.max(0, (1 - freqDifference / 1000) * 100); // 0-100% based on frequency difference
-        message = isCorrect ?
-          'Excellent! You identified the EQ frequency correctly!' :
-          `Nice attempt! The correct frequency was ${correctAnswer}Hz.`;
+        // Handle both multiple choice (selectedAnswerIndex) and slider (userAnswer) inputs
+        if (req.body.selectedAnswerIndex !== undefined) {
+          // Multiple choice validation (easy/medium)
+          isCorrect = req.body.selectedAnswerIndex === req.body.correctAnswerIndex;
+          accuracy = isCorrect ? 100 : 0;
+          message = isCorrect ?
+            'Excellent! You identified the EQ frequency correctly!' :
+            `Not quite right. The correct frequency was ${correctAnswer}Hz.`;
+        } else {
+          // Slider validation (hard)
+          const freqDifference = Math.abs(userAnswer - correctAnswer);
+          isCorrect = freqDifference <= tolerance;
+          accuracy = Math.max(0, (1 - freqDifference / 1000) * 100); // 0-100% based on frequency difference
+          message = isCorrect ?
+            'Excellent! You identified the EQ frequency correctly!' :
+            `Nice attempt! The correct frequency was ${correctAnswer}Hz.`;
+        }
         break;
 
       default:
