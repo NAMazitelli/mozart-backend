@@ -1,14 +1,16 @@
 const express = require('express');
 const { query, getClient } = require('../config/database');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, authenticateTokenOrGuest } = require('../middleware/auth');
 const router = express.Router();
+
+console.log('🎹 Exercise routes loaded - EQ EXERCISE FIXED VERSION 4');
 
 // ======================
 // EXERCISE GENERATION ENDPOINTS
 // ======================
 
 // Get a new guess-note exercise
-router.get('/guess-note/:difficulty', authenticateToken, async (req, res) => {
+router.get('/guess-note/:difficulty', authenticateTokenOrGuest, async (req, res) => {
   try {
     const { difficulty } = req.params;
 
@@ -71,7 +73,7 @@ router.get('/guess-note/:difficulty', authenticateToken, async (req, res) => {
 });
 
 // Get a new intervals exercise
-router.get('/intervals/:difficulty', authenticateToken, async (req, res) => {
+router.get('/intervals/:difficulty', authenticateTokenOrGuest, async (req, res) => {
   try {
     const { difficulty } = req.params;
 
@@ -82,15 +84,30 @@ router.get('/intervals/:difficulty', authenticateToken, async (req, res) => {
     const noteCounts = { easy: 2, medium: 3, hard: 5 };
     const noteCount = noteCounts[difficulty];
 
-    const baseNotes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
+    // For sequence generation, use natural notes only to keep it simple
+    const sequenceNotes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
+
+    // For piano display, include all chromatic notes (natural + sharp/flat)
+    const allPianoNotes = [
+      'C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4'
+    ];
+
+    // Complete frequency mapping for all chromatic notes
+    const noteFrequencies = {
+      'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63,
+      'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00,
+      'A#4': 466.16, 'B4': 493.88
+    };
+
     const sequence = [];
 
     for (let i = 0; i < noteCount; i++) {
-      const note = baseNotes[Math.floor(Math.random() * baseNotes.length)];
+      const note = sequenceNotes[Math.floor(Math.random() * sequenceNotes.length)];
       sequence.push({
         note: note,
-        frequency: 261.63 * Math.pow(2, baseNotes.indexOf(note.charAt(0)) / 12), // Simplified frequency calculation
-        displayName: note
+        frequency: noteFrequencies[note],
+        displayName: note,
+        isBlack: note.includes('#')
       });
     }
 
@@ -104,13 +121,19 @@ router.get('/intervals/:difficulty', authenticateToken, async (req, res) => {
       noteCount,
       points: difficulty === 'easy' ? 15 : difficulty === 'medium' ? 25 : 40,
       difficultyInfo: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} level sequence memory`,
-      pianoNotes: baseNotes.map(note => ({
+      pianoNotes: allPianoNotes.map(note => ({
         note: note,
-        frequency: 261.63 * Math.pow(2, baseNotes.indexOf(note.charAt(0)) / 12),
+        frequency: noteFrequencies[note],
         displayName: note,
         isBlack: note.includes('#')
       }))
     };
+
+    // Debug: Log piano notes to see what we're sending
+    console.log('Intervals - Piano notes being sent:');
+    exercise.pianoNotes.forEach(note => {
+      console.log(`  ${note.displayName}: ${note.isBlack ? 'BLACK' : 'WHITE'} key`);
+    });
 
     res.json(exercise);
   } catch (error) {
@@ -120,7 +143,7 @@ router.get('/intervals/:difficulty', authenticateToken, async (req, res) => {
 });
 
 // Get a new harmonies exercise
-router.get('/harmonies/:difficulty', authenticateToken, async (req, res) => {
+router.get('/harmonies/:difficulty', authenticateTokenOrGuest, async (req, res) => {
   try {
     const { difficulty } = req.params;
 
@@ -131,7 +154,21 @@ router.get('/harmonies/:difficulty', authenticateToken, async (req, res) => {
     const noteCounts = { easy: 2, medium: 3, hard: 4 };
     const noteCount = noteCounts[difficulty];
 
+    // For chord generation, use natural notes only to keep harmony simple
     const baseNotes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4'];
+
+    // For piano display, include all chromatic notes (natural + sharp/flat)
+    const allPianoNotes = [
+      'C4', 'C#4', 'D4', 'D#4', 'E4', 'F4', 'F#4', 'G4', 'G#4', 'A4', 'A#4', 'B4'
+    ];
+
+    // Complete frequency mapping for all chromatic notes
+    const noteFrequencies = {
+      'C4': 261.63, 'C#4': 277.18, 'D4': 293.66, 'D#4': 311.13, 'E4': 329.63,
+      'F4': 349.23, 'F#4': 369.99, 'G4': 392.00, 'G#4': 415.30, 'A4': 440.00,
+      'A#4': 466.16, 'B4': 493.88
+    };
+
     const chord = [];
 
     // Generate a chord (simplified - just random notes for now)
@@ -142,7 +179,7 @@ router.get('/harmonies/:difficulty', authenticateToken, async (req, res) => {
         usedNotes.add(note);
         chord.push({
           note: note,
-          frequency: 261.63 * Math.pow(2, baseNotes.indexOf(note.charAt(0)) / 12),
+          frequency: noteFrequencies[note],
           displayName: note,
           isBlack: false
         });
@@ -159,11 +196,11 @@ router.get('/harmonies/:difficulty', authenticateToken, async (req, res) => {
       noteCount,
       points: difficulty === 'easy' ? 15 : difficulty === 'medium' ? 25 : 40,
       difficultyInfo: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} level chord identification`,
-      pianoNotes: baseNotes.map(note => ({
+      pianoNotes: allPianoNotes.map(note => ({
         note: note,
-        frequency: 261.63 * Math.pow(2, baseNotes.indexOf(note.charAt(0)) / 12),
+        frequency: noteFrequencies[note],
         displayName: note,
-        isBlack: false
+        isBlack: note.includes('#')
       }))
     };
 
@@ -175,7 +212,7 @@ router.get('/harmonies/:difficulty', authenticateToken, async (req, res) => {
 });
 
 // Get other exercise types (panning, volumes, equalizing)
-router.get('/:category/:difficulty', authenticateToken, async (req, res) => {
+router.get('/:category/:difficulty', authenticateTokenOrGuest, async (req, res) => {
   try {
     const { category, difficulty } = req.params;
 
@@ -234,9 +271,9 @@ router.get('/:category/:difficulty', authenticateToken, async (req, res) => {
 
       case 'volumes':
         const volumeDifferences = {
-          easy: [-20, -15, -10, -6, 6, 10, 15, 20], // Large differences
-          medium: [-12, -8, -6, -3, 3, 6, 8, 12], // Medium differences
-          hard: [-8, -6, -4, -2, -1, 1, 2, 4, 6, 8] // Small differences
+          easy: [-12, -9, -6, -3, 3, 6, 9, 12], // Large differences
+          medium: [-8, -6, -4, -2, 2, 4, 6, 8], // Medium differences
+          hard: [-4, -3, -2, -1, 1, 2, 3, 4] // Small differences
         };
         const availableVolumes = volumeDifferences[difficulty];
         const volumeDifference = availableVolumes[Math.floor(Math.random() * availableVolumes.length)];
@@ -273,10 +310,11 @@ router.get('/:category/:difficulty', authenticateToken, async (req, res) => {
         exercise = {
           ...exercise,
           question: 'Listen to the EQ change and identify the frequency and gain:',
-          sound: { type: 'pink_noise', frequency: targetFrequency, displayName: 'Pink Noise' },
+          sound: { type: 'sawtooth', frequency: 220, displayName: 'Sawtooth Wave' },
           targetFrequency,
           eqGainDb,
           isBoost: eqGainDb > 0,
+          qFactor: 4.0, // Q factor for the peaking filter
           tolerance: difficulty === 'easy' ? 200 : difficulty === 'medium' ? 150 : 100,
           difficultyInfo: `${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)} level EQ identification`
         };
@@ -295,7 +333,7 @@ router.get('/:category/:difficulty', authenticateToken, async (req, res) => {
 // ======================
 
 // Validate guess-note answer
-router.post('/validate/guess-note', authenticateToken, async (req, res) => {
+router.post('/validate/guess-note', authenticateTokenOrGuest, async (req, res) => {
   try {
     const { exerciseId, selectedAnswerIndex, correctAnswerIndex } = req.body;
 
@@ -318,7 +356,7 @@ router.post('/validate/guess-note', authenticateToken, async (req, res) => {
 });
 
 // Validate intervals answer
-router.post('/validate/intervals', authenticateToken, async (req, res) => {
+router.post('/validate/intervals', authenticateTokenOrGuest, async (req, res) => {
   try {
     const { exerciseId, userSequence, correctSequence } = req.body;
 
@@ -348,7 +386,7 @@ router.post('/validate/intervals', authenticateToken, async (req, res) => {
 });
 
 // Validate harmonies answer
-router.post('/validate/harmonies', authenticateToken, async (req, res) => {
+router.post('/validate/harmonies', authenticateTokenOrGuest, async (req, res) => {
   try {
     const { exerciseId, userNotes, correctNotes } = req.body;
 
@@ -382,7 +420,7 @@ router.post('/validate/harmonies', authenticateToken, async (req, res) => {
 });
 
 // Validate other exercise types
-router.post('/validate/:category', authenticateToken, async (req, res) => {
+router.post('/validate/:category', authenticateTokenOrGuest, async (req, res) => {
   try {
     const { category } = req.params;
     const { exerciseId, userAnswer, correctAnswer, tolerance } = req.body;
